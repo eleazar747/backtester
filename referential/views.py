@@ -9,7 +9,7 @@ from .serializers import securitydescriptionSerializer
 from historical_price.models import historical_price
 from datetime import datetime
 from django.views.decorators.csrf import csrf_exempt
-
+from strategy.processor.backtest import computeResultBacktest 
 def loadstatic(request):
     loadStock()
     return HttpResponse("OK")
@@ -51,3 +51,27 @@ def viewsWelcome(request):
     data2=securitydescription.objects.filter(industry_level_1='Gambling').values()
     df=pd.DataFrame(data2)
     return HttpResponse(df.to_html())
+
+def view_backtester(request):
+    data2=computeResultBacktest()
+    
+    data_result=data2.values()
+    histo=historical_price.objects.filter(yahoo_id='ALK').order_by('spot_date').values()
+    df=pd.DataFrame(histo)
+    labels=[]
+    chartdata=[]
+    for i in range(0, df['spot_date'].count()):
+        labels.append(str(df['spot_date'][i]))
+        chartdata.append(df['close_price'][i])
+         
+    chartLabel = "Historical Price"
+     
+    data ={ 
+                     "labels":labels, 
+                     "chartLabel":chartLabel, 
+                     "chartdata":chartdata,
+                     'name': 'ALK', 
+             } 
+    
+    
+    return render(request, 'backtest_result.html',{'data_result': data_result, 'labels': labels,'histo': histo, 'data': data})

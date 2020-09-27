@@ -31,5 +31,5 @@ urlpatterns = [
     path('strategy', viewshisto.strategy),
     path('backtester',viewsBacktest.view_backtest),
     path('histo',views.viewsWelcome),
-    path('result',viewsBacktest.view_computeResultBacktest )
+    path('result/',views.view_backtester )
 ]

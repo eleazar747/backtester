@@ -9,4 +9,10 @@ def view_backtest(request):
 
 def view_computeResultBacktest(request):
     result=computeResultBacktest()
-    return HttpResponse(result.to_html())
+    print(result)
+    return HttpResponse("OK")
+
+
+
+
+

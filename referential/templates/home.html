@@ -46,7 +46,7 @@ bottom: .5em;
         <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
       </li>
       <li class="nav-item">
-        <a class="nav-link" href="#">Link</a>
+        <a class="nav-link" href="#">dashboard</a>
       </li>
       <li class="nav-item">
         <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Disabled</a>
@@ -58,6 +58,7 @@ bottom: .5em;
   <body>
     {% block content %}
       {% include 'dashboard.html' %}
+      {% include 'backtest_result.html' %}
     {% endblock content%}
 
     <!-- Optional JavaScript -->

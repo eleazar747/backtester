@@ -54,62 +54,107 @@ def backtester_next10d():
             start_date += delta
 
 class backtest_result():
-    def __init__(self,ticker,nb_transaction, winner,looser,pct_winner, buy_date):
+    def __init__(self,ticker):
         self.name=ticker
-        self.nb_transaction=nb_transaction
-        self.winner=winner
-        self.looser=looser
-        self.pct_winner=pct_winner
+        
+    def update_ath(self,nb_transaction, winner,pct_winner, buy_date, buy_price, last_price,param_level):
+        self.nb_transaction_ath=nb_transaction
+        self.winner_ath=winner=winner
+        self.pct_winner_ath=pct_winner
         self.last_buy_date=buy_date
+        self.last_buy_price=buy_price
+        self.last_price=last_price
+        self.param_level=param_level
+    
+    def update_3m(self,nb_transaction, winner,pct_winner):
+        self.nb_transaction_3m=nb_transaction
+        self.winner_3m=winner=winner
+        self.pct_winner_3m=pct_winner
+
+    def update_6m(self,nb_transaction, winner,pct_winner):
+        self.nb_transaction_6m=nb_transaction
+        self.winner_6m=winner=winner
+        self.pct_winner_6m=pct_winner
+        
+    def update_ytd(self,nb_transaction, winner,pct_winner):
+        self.nb_transaction_ytd=nb_transaction
+        self.winner_ytd=winner=winner
+        self.pct_winner_ytd=pct_winner
         
     def to_dict(self):
         return {
             "Name": self.name,
+            "Level": self.param_level,
             "Nb_Transaction": self.nb_transaction,
             "Winner": self.winner,
             "Pct_winner": self.pct_winner,
+            "last_Buy_Date": self.last_buy_date,
+            "nb_Transaction_6M":self.nb_transaction_6m,
+            "Winner_6M": self.winner_6m,
+            "Pct_winner_3M": self.pct_winner_3m,
+            "Pct_winner_6M": self.pct_winner_6m,
+            "Pct_winner_ytd": self.pct_winner_ytd,
         }
   
 def computeResultBacktest():
     list_stock=pd.DataFrame(securitydescription.objects.all().values())
     strat_name='10d'
-    d_result=[]
-    d_result_3m=[]
+    d_result=dict();
+    param_level=0.05
     for ticker in list_stock['yahoo_id']:
-        result=strategy_backtested.objects.filter(yahoo_id=ticker, name=strat_name, param_1=0.05).values()
-        df=pd.DataFrame(result)
-        if not df.empty:
-            nb_transaction=df.buy_date.count()
-            looser=df.loc[df['sell_date'].isnull()].buy_date.count()
-            winner=nb_transaction-looser
-            pct_winner=round(winner/nb_transaction*100,2)
-            pct_looser=looser/nb_transaction
-            d_result.append(backtest_result(ticker,nb_transaction, winner, looser, pct_winner))
-        else:
-            d_result.append(backtest_result(ticker,0,0,0,0))
-    resultict = [resultat.to_dict() for resultat in d_result]
-    df=pd.DataFrame(resultict)
-    
-    for ticker in list_stock['yahoo_id']:
-        result=strategy_backtested.objects.filter(yahoo_id=ticker, name=strat_name, buy_date__gte='2020-01-01', param_1=0.05).values()
-        df2=pd.DataFrame(result)
-        if not df2.empty:
-            nb_transaction=df2.buy_date.count()
-            looser=df2.loc[df2['sell_date'].isnull()].buy_date.count()
-            winner=nb_transaction-looser
-            pct_winner=round(winner/nb_transaction*100,2)
-            pct_looser=looser/nb_transaction
-            d_result_3m.append(backtest_result(ticker,nb_transaction, winner, looser, pct_winner))
-        else:
-            d_result_3m.append(backtest_result(ticker,0, 0, 0, 0))
-    
-    result_dict_3m=[resultat.to_dict() for resultat in d_result_3m]
-    df2=pd.DataFrame(result_dict_3m)
-    df_result=df.merge(df2, how='inner', on='Name')
-    print(df_result)
-    return df_result
+        d_result[ticker]=computeSingleTicker(ticker, strat_name, param_level)
+                
+    return d_result
             
-            
-            
+def computeResult(df):
+    nb_transaction=df.buy_date.count()
+    looser=df.loc[df['sell_date'].isnull()].buy_date.count()
+    winner=nb_transaction-looser
+    pct_winner=round(winner/nb_transaction*100,2)
+    pct_looser=round(looser/nb_transaction*100,2)
+    return nb_transaction, winner, pct_winner
 
-     
+def computeSingleTicker(ticker, strat_name, param_level):
+    result_ath=strategy_backtested.objects.filter(yahoo_id=ticker, name=strat_name, param_1=param_level).values()
+    result_3m=strategy_backtested.objects.filter(yahoo_id=ticker, name=strat_name, buy_date__gte='2020-07-01', param_1=param_level).values()
+    result_6m=strategy_backtested.objects.filter(yahoo_id=ticker, name=strat_name, buy_date__gte='2020-04-01', param_1=param_level).values()
+    result_ytd=strategy_backtested.objects.filter(yahoo_id=ticker, name=strat_name, buy_date__gte='2020-01-01', param_1=param_level).values()
+    df=pd.DataFrame(result_ath)
+    try:
+        last_date=pd.DataFrame(historical_price.objects.filter(yahoo_id=ticker).order_by('-id').values())
+        last_price=last_date['close_price'][0]
+    except:
+        last_price=0
+    print(last_price)
+    resultat=backtest_result(ticker)
+    if not df.empty:
+        nb_transaction, winner, pct_winner=computeResult(df)
+        last_buy_date=df.buy_date[len(df.buy_date)-1]
+        last_buy_date_f=last_buy_date.strftime("%Y-%m-%d")
+        buy_price=df.buy_price[len(df.buy_price)-1]
+        resultat.update_ath(nb_transaction, winner, pct_winner,last_buy_date_f,buy_price,last_price, param_level)
+    else:
+         resultat.update_ath(0,0,0,'2000-01-01',0,0,param_level)
+    
+    # 3m RESULTAT
+    df=pd.DataFrame(result_3m)
+    if not df.empty:
+        nb_transaction, winner, pct_winner=computeResult(df)
+        if resultat!=None:
+            resultat.update_3m(nb_transaction,winner,pct_winner)
+    
+    df=pd.DataFrame(result_6m)
+    if not df.empty:
+        nb_transaction, winner, pct_winner=computeResult(df)
+        if resultat!=None:
+            resultat.update_6m(nb_transaction,winner,pct_winner)
+    
+    df=pd.DataFrame(result_ytd)
+    if not df.empty:
+        nb_transaction, winner, pct_winner=computeResult(df)
+        if resultat!=None:
+            resultat.update_ytd(nb_transaction,winner,pct_winner)
+    return resultat
+
+def backtest_fb_prophet():
+    print('Forecast')

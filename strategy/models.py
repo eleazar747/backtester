@@ -4,11 +4,15 @@ from django.db import models
 class strategy_backtested(models.Model):
     name=models.CharField(max_length=100, null=False)
     yahoo_id=models.CharField(max_length=100, null=False)
+    indicator_name=models.CharField(max_length=100, null=False)
     param_1=models.FloatField(null=True)
     param_2=models.FloatField(null=True)
     param_3=models.FloatField(null=True)
     param_4=models.FloatField(null=True)
     param_3=models.FloatField(null=True)
+    param_5=models.FloatField(null=True)
+    param_6=models.FloatField(null=True)
+    param_7=models.FloatField(null=True)
     buy_date=models.DateField(null=True)
     sell_date=models.DateField(null=True)
     buy_price=models.FloatField(null=True)
@@ -18,3 +22,4 @@ class strategy_backtested(models.Model):
     
     class Meta:
         verbose_name = "Strategy"
+        
