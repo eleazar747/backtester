@@ -1,0 +1,99 @@
+{% extends 'home.html' %}
+{% block title %}
+	<title>Dashboard</title>
+{% endblock title %}
+
+
+
+
+
+{% block content %}
+
+	<div class="container style="left=0px width=120px">
+	<input type="text" id="myInput" onkeyup="myFunction()" placeholder="Search for names..">
+		<table id="table"
+  data-toggle="table"
+  data-toolbar=".toolbar"
+  data-sortable="true"
+  data-height="460">
+		  <thead>
+    		<tr>
+    		<th data-field="yahoo_id" data-sortable="true" id="sortStable">Yahoo id</th>
+      		<th data-field="name" data-sortable="true" id="sortStable">Name</th>
+      		<th data-field="sector" data-sortable="true" id="sortStable">Sector</th>
+      		<th data-field="industry" data-sortable="true" id="sortStable">Industry</th>
+      		<th data-field="market cap" data-sortable="true" id="sortStable">Market Cap</th>
+    		</tr>
+  		 </thead>
+		 <tbody>
+			{% for stock in data2 %}
+			<tr>	
+				<td>{{stock.yahoo_id}}</td>
+				<td>{{stock.name}}</td>
+			
+				<td>{{stock.sector_level_1}}</td>
+				<td>{{stock.industry_level_1}}</td>
+				<td>{{stock.market_cap}}</td>
+			</tr>
+			{% endfor %}
+		 </tbody>
+		</table>
+	</div>
+
+  <div class="container" id="container" style="left=125px width: 75%; ">
+    <canvas id="pie-chart"></canvas>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+  <script>
+
+    var config = {
+      type: 'line',
+      data: {
+        datasets: [{
+          data: {{ data.chartdata|safe }},
+          backgroundColor: [
+             '#D3D3D3'
+          ],
+          label: '{{data.name}}'
+        }],
+        labels: {{ data.labels|safe }}
+      },
+      options: {
+        responsive: true
+      }
+    };
+
+    window.onload = function() {
+      var ctx = document.getElementById('pie-chart').getContext('2d');
+      window.myChart = new Chart(ctx, config);
+    };
+
+  </script>
+
+<script>
+function myFunction() {
+  // Declare variables
+  var input, filter, table, tr, td, i, txtValue;
+  input = document.getElementById("myInput");
+  filter = input.value.toUpperCase();
+  table = document.getElementById("table");
+  tr = table.getElementsByTagName("tr");
+
+  // Loop through all table rows, and hide those who don't match the search query
+  for (i = 0; i < tr.length; i++) {
+    td = tr[i].getElementsByTagName("td")[0];
+    if (td) {
+      txtValue = td.textContent || td.innerText;
+      if (txtValue.toUpperCase().indexOf(filter) > -1) {
+        tr[i].style.display = "";
+      } else {
+        tr[i].style.display = "none";
+      }
+    }
+  }
+}
+</script>
+
+{% endblock content %}
+
