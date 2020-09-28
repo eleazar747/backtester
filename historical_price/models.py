@@ -44,6 +44,15 @@ class income_statement(models.Model):
     ref_date=models.DateField(null=True)
     revenue=models.FloatField(null=False)
     cost_revenue=models.FloatField(null=False)
+    netIncome=models.FloatField(null=False)
+    operatingExpenses=models.FloatField(null=False)
+    eps=models.FloatField(null=False)
+    ebitda=models.FloatField(null=False)
+    interestExpense=models.FloatField(null=False)
+    researchAndDevelopmentExpenses=models.FloatField(null=False)
+    fillingDate=models.DateField(null=False)
+    acceptedDate=models.DateField(null=False)
+    period=models.CharField(null=False, max_length=50)
     
     class Meta:
         verbose_name="income statement"
@@ -63,4 +72,32 @@ class balance_sheet(models.Model):
         
     def __str__(self):
         self.yahoo_id
+
+class fx_historical_price(models.Model):
     
+    yahoo_id=models.CharField(null=False, max_length=50)
+    open_price=models.FloatField(null=True)
+    close_price=models.FloatField(null=True)
+    high_price=models.FloatField(null=True)
+    low_price=models.FloatField(null=True)
+    spot_date=models.DateField(null=True)
+    
+    class Meta:
+        verbose_name="fx historical price"
+        
+    def __str__(self):
+        self.yahoo_id
+        
+class commodities_historical_price(models.Model):
+    yahoo_id=models.CharField(null=False, max_length=50)
+    open_price=models.FloatField(null=True)
+    close_price=models.FloatField(null=True)
+    high_price=models.FloatField(null=True)
+    low_price=models.FloatField(null=True)
+    spot_date=models.DateField(null=True)
+    
+    class Meta:
+        verbose_name="commodity historical price"
+        
+    def __str__(self):
+        self.yahoo_id
