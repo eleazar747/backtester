@@ -13,7 +13,7 @@ def retrieve_price():
 		
 		try:
 			ticker = yf.Ticker(df['yahoo_id'][i])	
-			data=ticker.history(start="2020-08-10", end=end_date, auto_adjust = True)
+			data=ticker.history(start="2021-03-01", end=end_date, auto_adjust = True)
 			dfHisto=pd.DataFrame(data)
 			dfHisto.reset_index(inplace=True)
 			dfHisto['price_change_1d']=(dfHisto['Close']/dfHisto['Close'].shift(1)-1)
@@ -48,4 +48,8 @@ def retrieve_price():
 			print("issue with symbol " + str(df['yahoo_id'][i]) + str(e))
 		
 	print(symbol)
-	
+
+def getHistopricebyId(ticker):
+	resulat=pd.DataFrame(historical_price.object.filter(yahoo_id=ticker))
+
+	return resulat

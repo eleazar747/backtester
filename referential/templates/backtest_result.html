@@ -13,35 +13,39 @@
 	<input type="text" id="myInput" onkeyup="myFunction()" placeholder="Search for names..">
 		<table id="table" data-toggle="table" data-toolbar=".toolbar" data-sortable="true" data-height="460">
 		  <thead>
-    		<tr>
-    		<th data-field="yahoo_id" data-sortable="true" id="sortStable">Yahoo id</th>
-      		<th data-field="level" data-sortable="true" id="sortStable">Name</th>
-      		<th data-field="nb transaction" data-sortable="true" id="sortStable">Nb Transaction</th>
-      		<th data-field="winner" data-sortable="true" id="sortStable">Winner</th>
-      		<th data-field="pct_winner" data-sortable="true" id="sortStable">% Winner</th>
-      		<th data-field="nb transaction 3m" data-sortable="true" id="sortStable">Nb Transaction 3M</th>
-      		<th data-field="winner_3m" data-sortable="true" id="sortStable">Winner 3M </th>
-      		<th data-field="pct_winner_3m" data-sortable="true" id="sortStable">% Winner 3M</th>
-      		<th data-field="last_buy_date" data-sortable="true" id="sortStable">buy date</th>
-      		<th data-field="buy_price" data-sortable="true" id="sortStable">buy Price</th>
-      		<th data-field="last_price" data-sortable="true" id="sortStable">Last Price</th>
-    		</tr>
+              <tr>
+                  <th data-field="yahoo_id" data-sortable="true" id="sortStable">Yahoo id</th>
+                  <th data-field="level" data-sortable="true" id="sortStable">Name</th>
+                  <th data-field="nb transaction" data-sortable="true" id="sortStable">Nb Transaction</th>
+                  <th data-field="winner" data-sortable="true" id="sortStable">Winner</th>
+                  <th data-field="pct_winner" data-sortable="true" id="sortStable">% Winner</th>
+                  <th data-field="nb transaction 3m" data-sortable="true" id="sortStable">Nb Transaction 3M</th>
+                  <th data-field="winner_3m" data-sortable="true" id="sortStable">Winner 3M </th>
+                  <th data-field="pct_winner_3m" data-sortable="true" id="sortStable">% Winner 3M</th>
+                  <th data-field="last_buy_date" data-sortable="true" id="sortStable">buy date</th>
+                  <th data-field="last_sell_date" data-sortable="true" id="sortStable">sell date</th>
+                  <th data-field="buy_price" data-sortable="true" id="sortStable">buy Price</th>
+                  <th data-field="sell_price" data-sortable="true" id="sortStable">sell Price</th>
+                  <th data-field="last_price" data-sortable="true" id="sortStable">Last Price</th>
+              </tr>
   		 </thead>
 		 <tbody>
 			{% for result in data_result %}
-			<tr>	
-				<td>{{result.name}}</td>
-				<td>{{result.param_level}}</td>
-				<td>{{result.nb_transaction_ath}}</td>
-				<td>{{result.winner_ath}}</td>
-				<td>{{result.pct_winner_ath}}</td>
-				<td>{{result.nb_transaction_3m}}</td>
-				<td>{{result.winner_3m}}</td>
-				<td>{{result.pct_winner_3m}}</td>
-				<td >{{result.last_buy_date}}</td>
-				<td >{{result.last_buy_price}}</td>
-				<td >{{result.last_price}}</td>
-			</tr>
+             <tr>
+                 <td>{{result.name}}</td>
+                 <td>{{result.param_level}}</td>
+                 <td>{{result.nb_transaction_ath}}</td>
+                 <td>{{result.winner_ath}}</td>
+                 <td>{{result.pct_winner_ath}}</td>
+                 <td>{{result.nb_transaction_3m}}</td>
+                 <td>{{result.winner_3m}}</td>
+                 <td>{{result.pct_winner_3m}}</td>
+                 <td>{{result.last_buy_date}}</td>
+                 <td>{{result.last_sell_date}}</td>
+                 <td>{{result.last_buy_price}}</td>
+                 <td>{{result.last_sell_price}}</td>
+                 <td>{{result.last_price}}</td>
+             </tr>
 			{% endfor %}
 		 </tbody>
 		</table>

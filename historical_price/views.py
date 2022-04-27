@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import HttpResponse
 from .processor.historical_price import retrieve_price
+from .processor.coinHisto import retrieve_price_coin
 from .models import historical_price
 # Create your views here.
 import pandas as pd
@@ -14,3 +15,6 @@ def strategy(request):
     return HttpResponse(df.to_html())
     
     
+def loadHistoCoin(request):
+      retrieve_price_coin()
+      return HttpResponse("OK")

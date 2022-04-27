@@ -1,0 +1,12 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\historical_price",
+    "\\historical_price\\processor",
+    "\\stockmarket",
+    "\\strategy",
+    "\\strategy\\processor"
+  ],
+  "SelectedNode": "\\strategy\\processor\\backtest.py",
+  "PreviewInSolutionExplorer": false
+}

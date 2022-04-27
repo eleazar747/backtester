@@ -31,5 +31,12 @@ urlpatterns = [
     path('strategy', viewshisto.strategy),
     path('backtester',viewsBacktest.view_backtest),
     path('histo',views.viewsWelcome),
-    path('result/',views.view_backtester )
+    path('result/',views.view_backtester ),
+    path('meanreversion',viewsBacktest.view_meanreversion ),
+    path('statregy_supertrend',viewsBacktest.view_supertrendtest),
+    path('bigdrop', viewsBacktest.view_bigdrop),
+    path('strategy_drop', viewsBacktest.view_backtestbigdrop),
+    path('load_histo_coin',viewshisto.loadHistoCoin),
+    path('bactester_coin',viewsBacktest.view_backtest_coin)
+
 ]

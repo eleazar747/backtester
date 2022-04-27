@@ -9,7 +9,7 @@ from .serializers import securitydescriptionSerializer
 from historical_price.models import historical_price
 from datetime import datetime
 from django.views.decorators.csrf import csrf_exempt
-from strategy.processor.backtest import computeResultBacktest 
+from strategy.processor.backtest import computeResultBacktest ,computeResultBacktestbigdrop
 def loadstatic(request):
     loadStock()
     return HttpResponse("OK")
@@ -27,7 +27,7 @@ def viewDashboard(request):
     data2=securitydescription.objects.all().values()
     print(data2)
     
-    histo=historical_price.objects.filter(yahoo_id='ALK').order_by('spot_date').values()
+    histo=historical_price.objects.filter(yahoo_id='BTC').order_by('spot_date').values()
     df=pd.DataFrame(histo)
     labels=[]
     chartdata=[]
@@ -41,7 +41,7 @@ def viewDashboard(request):
                      "labels":labels, 
                      "chartLabel":chartLabel, 
                      "chartdata":chartdata,
-                     'name': 'ALK', 
+                     'name': 'BTC', 
              } 
     
     
@@ -53,7 +53,7 @@ def viewsWelcome(request):
     return HttpResponse(df.to_html())
 
 def view_backtester(request):
-    data2=computeResultBacktest()
+    data2=computeResultBacktestbigdrop()
     
     data_result=data2.values()
     histo=historical_price.objects.filter(yahoo_id='ALK').order_by('spot_date').values()
