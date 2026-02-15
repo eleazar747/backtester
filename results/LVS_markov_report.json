@@ -1,0 +1,36 @@
+{
+  "summary": {
+    "n_observations": 1406,
+    "n_regimes": 1
+  },
+  "counts": {
+    "0": 1406
+  },
+  "pct": {
+    "0": 1.0
+  },
+  "returns": {
+    "0": {
+      "mean": 0.00017876042296151995,
+      "median": -0.00020184680754025,
+      "std": 0.02700115346489533
+    }
+  },
+  "run_stats": {
+    "0": {
+      "count": 1,
+      "mean_length": 1406.0,
+      "median_length": 1406.0
+    }
+  },
+  "transition_counts": [
+    [
+      1405
+    ]
+  ],
+  "transition_probabilities": [
+    [
+      1.0
+    ]
+  ]
+}
