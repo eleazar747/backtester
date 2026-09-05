@@ -1,0 +1,239 @@
+{% extends 'home.html' %}
+{% block title %}
+  <title>Indicator Review</title>
+{% endblock title %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="hero-card mb-4">
+    <div class="eyebrow">Strategy insights</div>
+    <h2 class="mb-2">Review ticker performance against strategy signals</h2>
+    <p class="mb-0 text-white-50">Inspect selection quality, trade timing, and signal behavior in one place.</p>
+  </div>
+
+  <div class="panel-card filter-card mb-4">
+    <form method="get" class="row g-3 align-items-end">
+      <div class="col-md-4">
+        <label for="ticker" class="form-label small text-uppercase text-muted">Ticker</label>
+        <input id="ticker" name="ticker" value="{{ ticker }}" class="form-control">
+      </div>
+      <div class="col-md-3">
+        <label for="ticker-list" class="form-label small text-uppercase text-muted">Quick pick</label>
+        <select id="ticker-list" class="form-control" onchange="document.getElementById('ticker').value=this.value;">
+          {% for stock_ticker in all_tickers %}
+          <option value="{{ stock_ticker }}" {% if stock_ticker == ticker %}selected{% endif %}>{{ stock_ticker }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label for="indicator" class="form-label small text-uppercase text-muted">Strategy</label>
+        <select id="indicator" name="indicator" class="form-control">
+          {% for indicator_name in indicator_names %}
+          <option value="{{ indicator_name }}" {% if indicator_name == selected_indicator %}selected{% endif %}>{{ indicator_name|upper }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <button type="submit" class="btn btn-primary w-100">View</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="row g-3 mb-4">
+    <div class="col-md-3">
+      <div class="metric-card h-100">
+        <div class="text-uppercase text-muted small">Selected strategy</div>
+        <div class="value">{{ selected_indicator|upper }}</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="metric-card h-100">
+        <div class="text-uppercase text-muted small">Trades</div>
+        <div class="value">{{ selected_indicator_summary.trade_count }}</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="metric-card h-100">
+        <div class="text-uppercase text-muted small">Win rate</div>
+        <div class="value">{{ selected_indicator_summary.win_rate }}%</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="metric-card h-100">
+        <div class="text-uppercase text-muted small">Avg trade return</div>
+        <div class="value">{{ selected_indicator_summary.avg_return }}%</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-card mb-4">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+          <h4 class="mb-1">Strategy vs price</h4>
+          <div class="text-muted small">Normalized to 100 at the first date in the selected window.</div>
+        </div>
+        <div class="score-chip">{{ ticker }}</div>
+      </div>
+      <div style="height: 420px;">
+        <canvas id="compare-chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel-card mb-4">
+    <div class="card-body">
+      <div class="small text-muted mb-3">Parameters: {{ selected_indicator_summary.params_label }}</div>
+      <div class="small text-muted">Available indicators: {{ indicator_names|join:", " }}</div>
+    </div>
+  </div>
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="panel-card">
+        <div class="card-body">
+          <h5 class="mb-3">Strategy trade list</h5>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Indicator</th>
+                  <th>Buy</th>
+                  <th>Sell</th>
+                  <th>Return %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for row in selected_trades %}
+                <tr>
+                  <td>{{ row.indicator_name|upper }}</td>
+                  <td>{{ row.buy_date }} @ {{ row.buy_price }}</td>
+                  <td>{{ row.sell_date }} @ {{ row.sell_price }}</td>
+                  <td>{{ row.return_pct }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-muted">No trades for this strategy and ticker.</td></tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="panel-card">
+        <div class="card-body">
+          <h5 class="mb-3">Top results by indicator</h5>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Indicator</th>
+                  <th>Trades</th>
+                  <th>Return %</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for indicator_name, indicator_rows in indicator_groups %}
+                <tr>
+                  <td>{{ indicator_name|upper }}</td>
+                  <td>{{ indicator_rows|length }}</td>
+                  <td>{{ indicator_rows.0.return_pct|default_if_none:"-" }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+  var buyPoints = {{ data.buy_points|safe }};
+  var sellPoints = {{ data.sell_points|safe }};
+  var stockData = {{ data.stockdata|safe }};
+  var strategyData = {{ data.strategydata|safe }};
+  var labels = {{ data.labels|safe }};
+
+  var config = {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: '{{ ticker }} close',
+          data: stockData,
+          borderColor: '#1f4da3',
+          backgroundColor: 'rgba(31,77,163,0.08)',
+          fill: false,
+          tension: 0.2,
+          pointRadius: 0
+        },
+        {
+          label: '{{ selected_indicator|upper }} backtest',
+          data: strategyData,
+          borderColor: '#2f9e44',
+          backgroundColor: 'rgba(47,158,68,0.08)',
+          fill: false,
+          tension: 0.2,
+          pointRadius: 0
+        },
+        {
+          label: 'Buy',
+          data: buyPoints,
+          type: 'scatter',
+          borderColor: '#d62728',
+          backgroundColor: '#d62728',
+          pointRadius: 5
+        },
+        {
+          label: 'Sell',
+          data: sellPoints,
+          type: 'scatter',
+          borderColor: '#9467bd',
+          backgroundColor: '#9467bd',
+          pointRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom' },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              var point = context.raw || {};
+              if (context.dataset.type === 'scatter') {
+                var action = context.dataset.label || 'Trade';
+                var text = action + ' | date: ' + (point.date || point.x) + ' | price: ' + point.price;
+                if (point.return_pct !== '' && point.return_pct !== null && point.return_pct !== undefined) {
+                  text += ' | return: ' + point.return_pct + '%';
+                }
+                if (point.indicator) {
+                  text += ' | indicator: ' + String(point.indicator).toUpperCase();
+                }
+                return text;
+              }
+              return context.dataset.label + ': ' + context.formattedValue;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { title: { display: true, text: 'Date' } },
+        y: { title: { display: true, text: 'Normalized value' } }
+      }
+    }
+  };
+
+  window.onload = function() {
+    var ctx = document.getElementById('compare-chart').getContext('2d');
+    window.myChart = new Chart(ctx, config);
+  };
+</script>
+{% endblock content %}

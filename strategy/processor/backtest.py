@@ -1,6 +1,8 @@
 from historical_price.models import historical_price
 from referential.models import securitydescription
 import pandas as pd
+import yfinance as yf
+from dataclasses import dataclass
 from datetime import datetime,timedelta
 from ..models import strategy_backtested
 from hamcrest.core.core.isnone import none
@@ -9,6 +11,225 @@ from django.conf.locale import nb
 import math
 import statistics
 from historical_price.processor.historical_price import getHistopricebyId as Histo
+from strategy.processor.signals import (
+    compute_rsi,
+    rsi_signal,
+    supertrend_signal,
+    macd_signal,
+    ema_cross_signal,
+    ema_trend_signal,
+    bollinger_signal,
+    stochastic_signal,
+)
+
+
+@dataclass
+class IndicatorBacktestSet:
+    ticker: str
+    indicator_name: str
+    param_1: float
+    param_2: float
+    trades: list
+    param_3: float = None
+
+
+def _fetch_two_year_history(ticker_symbol):
+    df = pd.DataFrame(yf.Ticker(str(ticker_symbol)).history(period='3y', auto_adjust=True))
+    if df.empty:
+        return df
+
+    df = df.reset_index()
+    date_col = 'Date' if 'Date' in df.columns else 'Datetime'
+    return df.set_index(date_col).sort_index()
+
+
+def _run_indicator_trades(prices, signals):
+    position = False
+    buy_date = None
+    buy_price = None
+    trades = []
+
+    for date, price, signal in zip(prices.index, prices.values, signals.values):
+        trade_date = pd.Timestamp(date).date()
+        if signal == 1 and not position:
+            position = True
+            buy_date = trade_date
+            buy_price = price
+        elif signal == -1 and position:
+            trades.append((buy_date, trade_date, buy_price, price))
+            position = False
+            buy_date = None
+            buy_price = None
+
+    if position and buy_date is not None:
+        last_date = pd.Timestamp(prices.index[-1]).date()
+        last_price = prices.iloc[-1]
+        trades.append((buy_date, last_date, buy_price, last_price))
+
+    return trades
+
+
+def _combine_signals(signals, min_votes, allow_opposite_votes=False):
+    signal_df = pd.concat(signals, axis=1).fillna(0).astype(int)
+    buy_votes = (signal_df == 1).sum(axis=1)
+    sell_votes = (signal_df == -1).sum(axis=1)
+
+    combined = pd.Series(0, index=signal_df.index, dtype=int)
+    if allow_opposite_votes:
+        vote_balance = buy_votes - sell_votes
+        combined[vote_balance >= min_votes] = 1
+        combined[vote_balance <= -min_votes] = -1
+    else:
+        combined[(buy_votes >= min_votes) & (sell_votes == 0)] = 1
+        combined[(sell_votes >= min_votes) & (buy_votes == 0)] = -1
+    return combined
+
+
+def _generate_indicator_backtests(ticker):
+    df = _fetch_two_year_history(ticker)
+    if df.empty or len(df) < 30:
+        return []
+
+    close = df['Close']
+    high = df['High']
+    low = df['Low']
+
+    rsi = compute_rsi(close, period=14)
+    rsi_sig = rsi_signal(rsi)
+    rsi_trades = _run_indicator_trades(close, rsi_sig)
+
+    _, st_sig = supertrend_signal(high, low, close, lookback=10, multiplier=3)
+    st_trades = _run_indicator_trades(close, st_sig)
+    _, _, macd_sig = macd_signal(close, fast=12, slow=26, signal_span=9)
+    macd_trades = _run_indicator_trades(close, macd_sig)
+
+    _, _, ema_sig = ema_cross_signal(close, fast=20, slow=50)
+    ema_trades = _run_indicator_trades(close, ema_sig)
+
+    _, _, _, trend_sig = ema_trend_signal(close, fast_period=20, slow_period=50, momentum_period=10)
+    trend_trades = _run_indicator_trades(close, trend_sig)
+
+    _, _, _, bb_sig = bollinger_signal(close, window=20, num_std=2)
+    bb_trades = _run_indicator_trades(close, bb_sig)
+
+    _, _, stochastic_sig = stochastic_signal(high, low, close, k_period=14, d_period=3)
+    stochastic_trades = _run_indicator_trades(close, stochastic_sig)
+
+    indicator_sets = [
+        IndicatorBacktestSet(ticker=ticker, indicator_name='rsi', param_1=14, param_2=30, trades=rsi_trades),
+        IndicatorBacktestSet(ticker=ticker, indicator_name='supertrend', param_1=10, param_2=3, trades=st_trades),
+        IndicatorBacktestSet(ticker=ticker, indicator_name='macd', param_1=12, param_2=26, trades=macd_trades),
+        IndicatorBacktestSet(ticker=ticker, indicator_name='ema_cross', param_1=20, param_2=50, trades=ema_trades),
+        IndicatorBacktestSet(ticker=ticker, indicator_name='ema_trend', param_1=20, param_2=50, param_3=10, trades=trend_trades),
+        IndicatorBacktestSet(ticker=ticker, indicator_name='bollinger', param_1=20, param_2=2, trades=bb_trades),
+        IndicatorBacktestSet(ticker=ticker, indicator_name='stochastic', param_1=14, param_2=3, trades=stochastic_trades),
+    ]
+
+    combo_signals = [rsi_sig, st_sig, macd_sig, ema_sig, trend_sig, bb_sig, stochastic_sig]
+    majority_votes = 3
+    combo_majority_sig = _combine_signals(
+        combo_signals,
+        min_votes=majority_votes,
+        allow_opposite_votes=True,
+    )
+    combo_majority_trades = _run_indicator_trades(close, combo_majority_sig)
+    combo_all_sig = _combine_signals(combo_signals, min_votes=len(combo_signals))
+    combo_all_trades = _run_indicator_trades(close, combo_all_sig)
+
+    indicator_sets.extend([
+        IndicatorBacktestSet(
+            ticker=ticker,
+            indicator_name='multi_indicator_combo',
+            param_1=majority_votes,
+            param_2=len(combo_signals),
+            trades=combo_majority_trades,
+        ),
+        IndicatorBacktestSet(
+            ticker=ticker,
+            indicator_name='all_indicators_combo',
+            param_1=len(combo_signals),
+            param_2=len(combo_signals),
+            trades=combo_all_trades,
+        ),
+    ])
+
+    return indicator_sets
+
+
+def _store_indicator_backtest(ticker, indicator_name, param_1, param_2, trades, param_3=None):
+    strategy_backtested.objects.filter(
+        yahoo_id=ticker,
+        name='indicator_2y',
+        indicator_name=indicator_name,
+        param_1=param_1,
+        param_2=param_2,
+        param_3=param_3,
+    ).delete()
+
+    if not trades:
+        strategy_backtested.objects.create(
+            yahoo_id=ticker,
+            name='indicator_2y',
+            indicator_name=indicator_name,
+            param_1=param_1,
+            param_2=param_2,
+            param_3=param_3,
+            buy_date=None,
+            sell_date=None,
+            buy_price=None,
+            sell_price=None,
+        )
+        return
+
+    for buy_date, sell_date, buy_price, sell_price in trades:
+        strategy_backtested.objects.create(
+            yahoo_id=ticker,
+            name='indicator_2y',
+            indicator_name=indicator_name,
+            param_1=param_1,
+            param_2=param_2,
+            param_3=param_3,
+            buy_date=buy_date,
+            sell_date=sell_date,
+            buy_price=buy_price,
+            sell_price=sell_price,
+        )
+
+
+def backtester_indicators_last_2y():
+    list_stock = pd.DataFrame(securitydescription.objects.all().values())
+    if list_stock.empty:
+        print('No securities available for indicator backtest')
+        return
+
+    print('Running indicator backtest from live 2-year Yahoo history')
+
+    for ticker in list_stock['yahoo_id']:
+        backtest_sets = _generate_indicator_backtests(ticker)
+        if not backtest_sets:
+            print('Skipping ' + str(ticker) + ' due to insufficient history')
+            continue
+
+        for backtest_set in backtest_sets:
+            _store_indicator_backtest(
+                backtest_set.ticker,
+                backtest_set.indicator_name,
+                backtest_set.param_1,
+                backtest_set.param_2,
+                backtest_set.trades,
+                backtest_set.param_3,
+            )
+            print(
+                'Backtested '
+                + backtest_set.indicator_name.upper()
+                + ' for '
+                + str(backtest_set.ticker)
+                + ' with '
+                + str(len(backtest_set.trades))
+                + ' trades'
+            )
+
+    print('Indicator backtest complete')
 def backtester_next10d():
     
     list_stock=securitydescription.objects.values_list('yahoo_id')

@@ -1,0 +1,532 @@
+{% extends 'home.html' %}
+{% block title %}
+  <title>Next Year Portfolio</title>
+{% endblock title %}
+
+{% block content %}
+<div id="portfolio-root"></div>
+
+<script>
+  window.initialPortfolioData = {{ initial_portfolio_data|safe }};
+</script>
+
+<script type="text/babel" data-presets="react">
+  const { useEffect, useMemo, useRef, useState } = React;
+  const initialPortfolioData = window.initialPortfolioData;
+
+  function formatPercent(value) {
+    return Number(value).toFixed(1) + '%';
+  }
+
+  function PortfolioDashboard() {
+    const heroParagraphStyle = { maxWidth: '760px', opacity: 0.9 };
+    const metricLabelStyle = { fontSize: 12, textTransform: 'uppercase', letterSpacing: '0.16em', color: '#5c6b7a' };
+    const clickableRowStyle = { cursor: 'pointer' };
+    const chartPanelStyle = { height: '380px' };
+    const listStyle = { paddingLeft: '18px', marginBottom: 0 };
+    const subListStyle = { paddingLeft: '18px' };
+
+    const [filters, setFilters] = useState({
+      name: initialPortfolioData.selected_dataset,
+      indicator: initialPortfolioData.selected_indicator,
+      positions: initialPortfolioData.max_positions,
+      min_trades: initialPortfolioData.min_trade_count,
+    });
+    const [data, setData] = useState(initialPortfolioData);
+    const [loading, setLoading] = useState(false);
+    const [selectedTicker, setSelectedTicker] = useState(initialPortfolioData.positions && initialPortfolioData.positions[0] ? initialPortfolioData.positions[0].ticker : '');
+    const [chartData, setChartData] = useState(null);
+    const [chartError, setChartError] = useState('');
+    const chartRef = useRef(null);
+    const chartInstanceRef = useRef(null);
+
+    const loadPortfolio = (nextFilters) => {
+      setLoading(true);
+      const params = new URLSearchParams({
+        name: nextFilters.name,
+        indicator: nextFilters.indicator,
+        positions: String(nextFilters.positions),
+        min_trades: String(nextFilters.min_trades),
+        format: 'json',
+      });
+
+      fetch('/portfolio_next_year?' + params.toString(), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      })
+        .then(function(response) { return response.json(); })
+        .then(function(payload) {
+          setData(payload);
+          setLoading(false);
+        })
+        .catch(function() {
+          setLoading(false);
+        });
+    };
+
+    useEffect(function() {
+      const timer = window.setTimeout(function() {
+        loadPortfolio(filters);
+      }, 240);
+      return function() {
+        window.clearTimeout(timer);
+      };
+    }, [filters.name, filters.indicator, filters.positions, filters.min_trades]);
+
+    useEffect(function() {
+      if (!data.positions || !data.positions.length) {
+        setSelectedTicker('');
+        setChartData(null);
+        setChartError('');
+        return;
+      }
+      if (!selectedTicker || !data.positions.some(function(position) { return position.ticker === selectedTicker; })) {
+        setSelectedTicker(data.positions[0].ticker);
+      }
+    }, [data.positions, selectedTicker]);
+
+    useEffect(function() {
+      if (!selectedTicker) {
+        setChartData(null);
+        setChartError('');
+        return;
+      }
+      setChartError('');
+      const params = new URLSearchParams({
+        ticker: selectedTicker,
+        indicator: filters.indicator,
+      });
+      fetch('/indicator_chart_data?' + params.toString(), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+      })
+        .then(function(response) { return response.json(); })
+        .then(function(payload) {
+          if (payload && payload.error) {
+            setChartError(payload.error);
+            setChartData(null);
+            return;
+          }
+          setChartData(payload);
+        })
+        .catch(function() {
+          setChartError('Unable to load the strategy chart for this ticker.');
+          setChartData(null);
+        });
+    }, [selectedTicker, filters.indicator]);
+
+    useEffect(function() {
+      if (!chartRef.current || !chartData || !chartData.labels || !chartData.labels.length) {
+        return;
+      }
+
+      if (chartInstanceRef.current) {
+        chartInstanceRef.current.destroy();
+        chartInstanceRef.current = null;
+      }
+
+      const ctx = chartRef.current.getContext('2d');
+      chartInstanceRef.current = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: chartData.labels,
+          datasets: [
+            {
+              label: chartData.ticker + ' close',
+              data: chartData.stockdata,
+              borderColor: '#1f4da3',
+              backgroundColor: 'rgba(31, 77, 163, 0.08)',
+              tension: 0.2,
+              pointRadius: 0,
+            },
+            {
+              label: chartData.indicator_name + ' strategy',
+              data: chartData.strategydata,
+              borderColor: '#2f9e44',
+              backgroundColor: 'rgba(47, 158, 68, 0.08)',
+              tension: 0.2,
+              pointRadius: 0,
+            },
+          ],
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom' },
+          },
+          scales: {
+            y: {
+              title: { display: true, text: 'Normalized value' },
+            },
+            x: {
+              title: { display: true, text: 'Date' },
+            },
+          },
+        },
+      });
+
+      return function() {
+        if (chartInstanceRef.current) {
+          chartInstanceRef.current.destroy();
+          chartInstanceRef.current = null;
+        }
+      };
+    }, [chartData]);
+
+    const summaryCards = useMemo(function() {
+      return [
+        {
+          label: 'Candidates',
+          value: data.summary.candidate_count,
+          hint: 'strategies that cleared the trade floor',
+        },
+        {
+          label: 'Selected positions',
+          value: data.summary.selected_count,
+          hint: 'portfolio slots to keep',
+        },
+        {
+          label: 'Method',
+          value: data.selected_indicator,
+          hint: 'score + consistency over outlier spikes',
+        },
+      ];
+    }, [data]);
+
+    const selectedPosition = useMemo(function() {
+      if (!selectedTicker || !data.positions || !data.positions.length) {
+        return null;
+      }
+      return data.positions.find(function(position) {
+        return position.ticker === selectedTicker;
+      }) || null;
+    }, [data.positions, selectedTicker]);
+
+    return (
+      <div className="portfolio-shell">
+        <style>{`
+          body {
+            background: linear-gradient(135deg, #f3f6ff 0%, #eef7ff 100%);
+            color: #11243d;
+          }
+          .portfolio-shell {
+            padding: 24px 0 40px;
+          }
+          .hero-card {
+            background: linear-gradient(135deg, #132b50 0%, #1f4da3 100%);
+            color: #ffffff;
+            border-radius: 24px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(17, 36, 61, 0.18);
+          }
+          .hero-card .eyebrow {
+            font-size: 12px;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            opacity: 0.8;
+          }
+          .panel-card {
+            background: rgba(255,255,255,0.95);
+            border: 1px solid rgba(17, 36, 61, 0.08);
+            border-radius: 20px;
+            box-shadow: 0 10px 24px rgba(17, 36, 61, 0.06);
+          }
+          .metric-card {
+            padding: 16px 18px;
+            border-radius: 16px;
+            background: #f8fbff;
+            border: 1px solid rgba(17, 36, 61, 0.06);
+            height: 100%;
+          }
+          .metric-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-top: 6px;
+          }
+          .metric-card .hint {
+            font-size: 13px;
+            color: #5c6b7a;
+          }
+          .filter-card {
+            padding: 20px;
+            margin: 18px 0 16px;
+          }
+          .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 12px;
+          }
+          .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+          }
+          .control-group label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.16em;
+            color: #5c6b7a;
+          }
+          .control-group select, .control-group input {
+            border-radius: 12px;
+            border: 1px solid #d7e3f2;
+            padding: 10px 12px;
+            background: #fff;
+          }
+          .table-card {
+            padding: 18px;
+            overflow: hidden;
+          }
+          .table-card table {
+            margin-bottom: 0;
+          }
+          .table-card thead th {
+            border-top: 0;
+            color: #5c6b7a;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.14em;
+          }
+          .ticker-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 54px;
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: #eaf3ff;
+            color: #1f4da3;
+            font-weight: 700;
+          }
+          .score-chip {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            background: #ebf9f1;
+            color: #1f7a3b;
+            padding: 6px 10px;
+            font-weight: 600;
+          }
+          .weight-pill {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: #fff4df;
+            color: #936000;
+            font-weight: 600;
+          }
+          .hint {
+            color: #5c6b7a;
+            font-size: 14px;
+            line-height: 1.55;
+          }
+          .empty-state {
+            text-align: center;
+            padding: 24px;
+            color: #5c6b7a;
+          }
+          @media (max-width: 900px) {
+            .filter-grid {
+              grid-template-columns: 1fr 1fr;
+            }
+          }
+          @media (max-width: 600px) {
+            .filter-grid {
+              grid-template-columns: 1fr;
+            }
+          }
+        `}</style>
+
+        <div className="container">
+          <div className="hero-card mb-4">
+            <div className="eyebrow">Portfolio intelligence</div>
+            <h2 className="mb-2">Retail-ready allocation engine</h2>
+            <p className="mb-0" style={heroParagraphStyle}>
+              This view blends backtest quality with consistency so the shortlist feels more like a durable next-year portfolio and less like a noisy leaderboard.
+            </p>
+          </div>
+
+          <div className="panel-card filter-card">
+            <div className="filter-grid">
+              <div className="control-group">
+                <label>Dataset</label>
+                <select value={filters.name} onChange={function(event) { setFilters(function(prev) { return Object.assign({}, prev, { name: event.target.value }); }); }}>
+                  {initialPortfolioData.dataset_names.map(function(name) {
+                    return <option key={name} value={name}>{name}</option>;
+                  })}
+                </select>
+              </div>
+              <div className="control-group">
+                <label>Strategy</label>
+                <select value={filters.indicator} onChange={function(event) { setFilters(function(prev) { return Object.assign({}, prev, { indicator: event.target.value }); }); }}>
+                  {initialPortfolioData.indicator_names.map(function(name) {
+                    return <option key={name} value={name}>{name}</option>;
+                  })}
+                </select>
+              </div>
+              <div className="control-group">
+                <label>Positions</label>
+                <input type="number" min="5" max="25" value={filters.positions} onChange={function(event) { setFilters(function(prev) { return Object.assign({}, prev, { positions: Number(event.target.value) }); }); }} />
+              </div>
+              <div className="control-group">
+                <label>Min trades</label>
+                <input type="number" min="1" max="20" value={filters.min_trades} onChange={function(event) { setFilters(function(prev) { return Object.assign({}, prev, { min_trades: Number(event.target.value) }); }); }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="row g-3 mb-4">
+            {summaryCards.map(function(card) {
+              return (
+                <div className="col-md-4" key={card.label}>
+                  <div className="metric-card">
+                    <div style={metricLabelStyle}>{card.label}</div>
+                    <div className="value">{card.value}</div>
+                    <div className="hint">{card.hint}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="panel-card table-card mb-4">
+            <div className="d-flex justify-content-between align-items-start mb-3">
+              <div>
+                <h4 className="mb-1">Best next-year portfolio</h4>
+                <div className="hint">A conservative shortlist tailored for a retail investor who needs durable income and solid consistency.</div>
+              </div>
+              <div className="score-chip">Recommended</div>
+            </div>
+            <h5 className="mb-3">{data.portfolio_summary.headline}</h5>
+            <ul className="mb-3" style={listStyle}>
+              {data.portfolio_summary.bullets.map(function(bullet, index) {
+                return <li key={index} className="hint">{bullet}</li>;
+              })}
+            </ul>
+            <div className="mt-3">
+              <div style={metricLabelStyle}>Why this strategy?</div>
+              <ul className="mb-0" style={subListStyle}>
+                {data.portfolio_summary.why_strategy.map(function(item, index) {
+                  return <li key={index} className="hint">{item}</li>;
+                })}
+              </ul>
+            </div>
+          </div>
+
+          <div className="panel-card table-card">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h4 className="mb-1">Candidate positions</h4>
+                <div className="hint">Using a {data.history_years}-year window and a {data.min_trade_count}+ trade quality floor.</div>
+              </div>
+              <div className="score-chip">{loading ? 'Refreshing…' : 'Live'}</div>
+            </div>
+
+            {data.positions && data.positions.length > 0 ? (
+              <div className="table-responsive">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Ticker</th>
+                      <th>Weight</th>
+                      <th>Trades</th>
+                      <th>Win rate</th>
+                      <th>Avg return</th>
+                      <th>Best</th>
+                      <th>Worst</th>
+                      <th>Sector</th>
+                      <th>Review</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {data.positions.map(function(position, index) {
+                      return (
+                        <tr key={position.ticker} onClick={function() { setSelectedTicker(position.ticker); }} style={clickableRowStyle}>
+                          <td>{index + 1}</td>
+                          <td>
+                            <div className="d-flex flex-column">
+                              <span className="ticker-pill">{position.ticker}</span>
+                              <span className="hint mt-1">{position.company_name}</span>
+                            </div>
+                          </td>
+                          <td><span className="weight-pill">{position.weight_pct}%</span></td>
+                          <td>{position.trade_count}</td>
+                          <td>{position.win_rate}%</td>
+                          <td>{position.avg_return}%</td>
+                          <td>{position.best_return}%</td>
+                          <td>{position.worst_return}%</td>
+                          <td>{position.sector}</td>
+                          <td><a href={'/indicator_review?ticker=' + position.ticker + '&indicator=' + data.selected_indicator}>Open</a></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="empty-state">No positions meet the current quality threshold yet. Try easing the trade floor or widening the strategy window.</div>
+            )}
+          </div>
+
+          <div className="panel-card table-card mt-4">
+            <div className="d-flex justify-content-between align-items-center mb-3">
+              <div>
+                <h4 className="mb-1">Strategy view</h4>
+                <div className="hint">Inspect the selected ticker alongside the strategy curve and trade markers.</div>
+              </div>
+              <div className="score-chip">{selectedTicker || 'No ticker'}</div>
+            </div>
+
+            {chartError ? (
+              <div className="empty-state">{chartError}</div>
+            ) : (
+              <div className="row g-4">
+                <div className="col-lg-8">
+                  <div style={chartPanelStyle}>
+                    <canvas ref={chartRef}></canvas>
+                  </div>
+                </div>
+                <div className="col-lg-4">
+                  <div className="metric-card">
+                    <div style={metricLabelStyle}>Selected ticker</div>
+                    <div className="value">{selectedPosition ? selectedPosition.company_name : selectedTicker}</div>
+                    <div className="hint">{selectedTicker}</div>
+                    <div className="hint">Strategy: {data.selected_indicator}</div>
+                    {selectedPosition ? (
+                      <div className="mt-3">
+                        <div className="hint">Sector: {selectedPosition.sector}</div>
+                        <div className="hint">Industry: {selectedPosition.industry}</div>
+                        <div className="hint">Country: {selectedPosition.country || 'N/A'}</div>
+                        <div className="hint">Market cap: {selectedPosition.market_cap_label}</div>
+                        <div className="hint">Why it fits: {selectedPosition.detail_reason}</div>
+                        <div className="hint">Params: {selectedPosition.params_label}</div>
+                        <div className="hint">Target weight: {selectedPosition.weight_pct}%</div>
+                      </div>
+                    ) : (
+                      <div className="hint mt-3">The chart will load as soon as a ticker is selected.</div>
+                    )}
+                    {chartData ? (
+                      <div className="mt-3">
+                        <div className="hint">Chart trades: {chartData.selected_indicator_summary.trade_count}</div>
+                        <div className="hint">Chart win rate: {chartData.selected_indicator_summary.win_rate}%</div>
+                        <div className="hint">Chart avg return: {chartData.selected_indicator_summary.avg_return}%</div>
+                        <div className="hint">Chart params: {chartData.selected_indicator_summary.params_label}</div>
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const portfolioRoot = document.getElementById('portfolio-root');
+  if (portfolioRoot) {
+    ReactDOM.createRoot(portfolioRoot).render(<PortfolioDashboard />);
+  }
+</script>
+{% endblock content %}

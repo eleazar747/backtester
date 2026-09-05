@@ -1,0 +1,92 @@
+{% extends 'home.html' %}
+{% block title %}
+  <title>Strategy Params Dashboard</title>
+{% endblock title %}
+
+{% block content %}
+<div class="container">
+  <h3>Strategy Parameters Dashboard</h3>
+  <p>
+    <a href="/portfolio_next_year?name=indicator_2y&indicator=multi_indicator_combo&positions=12">Build next-year portfolio from current results</a>
+  </p>
+  <form method="get" class="mb-3">
+    <label for="name">Backtest dataset</label>
+    <select id="name" name="name" class="form-control" style="max-width: 220px; display: inline-block;">
+      {% for dataset_name in dataset_names %}
+      <option value="{{ dataset_name }}" {% if dataset_name == selected_dataset %}selected{% endif %}>{{ dataset_name }}</option>
+      {% endfor %}
+    </select>
+
+    <label for="indicator" class="ml-2">Indicator</label>
+    <select id="indicator" name="indicator" class="form-control" style="max-width: 220px; display: inline-block;">
+      <option value="all" {% if selected_indicator == 'all' %}selected{% endif %}>ALL</option>
+      {% for indicator_name in indicator_names %}
+      <option value="{{ indicator_name }}" {% if indicator_name == selected_indicator %}selected{% endif %}>{{ indicator_name|upper }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">View</button>
+  </form>
+
+  <h5>Parameter Usage by Strategy</h5>
+  <table class="table table-sm table-striped">
+    <thead>
+      <tr>
+        <th>Indicator</th>
+        <th>Params</th>
+        <th>Tickers</th>
+        <th>Rows</th>
+        <th>Trades</th>
+        <th>Win Rate %</th>
+        <th>Avg Return %</th>
+        <th>Best %</th>
+        <th>Worst %</th>
+        <th>Chart</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in strategy_summary %}
+      <tr>
+        <td>{{ item.indicator_name|upper }}</td>
+        <td>{{ item.params_label }}</td>
+        <td>{{ item.ticker_count }}</td>
+        <td>{{ item.row_count }}</td>
+        <td>{{ item.trade_count }}</td>
+        <td>{{ item.win_rate }}</td>
+        <td>{{ item.avg_return }}</td>
+        <td>{{ item.best_return }}</td>
+        <td>{{ item.worst_return }}</td>
+        <td><a href="/indicator_review?indicator={{ item.indicator_name }}">Open</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <h5>Top Trades (with params)</h5>
+  <table class="table table-sm table-striped">
+    <thead>
+      <tr>
+        <th>Ticker</th>
+        <th>Indicator</th>
+        <th>Params</th>
+        <th>Buy</th>
+        <th>Sell</th>
+        <th>Return %</th>
+        <th>Chart</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in trade_rows %}
+      <tr>
+        <td>{{ row.yahoo_id }}</td>
+        <td>{{ row.indicator_name|upper }}</td>
+        <td>{{ row.params_label }}</td>
+        <td>{{ row.buy_date }} @ {{ row.buy_price }}</td>
+        <td>{{ row.sell_date }} @ {{ row.sell_price }}</td>
+        <td>{{ row.return_pct }}</td>
+        <td><a href="/indicator_review?ticker={{ row.yahoo_id }}&indicator={{ row.indicator_name }}">View chart</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock content %}
