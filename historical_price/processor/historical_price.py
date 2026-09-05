@@ -3,6 +3,91 @@ import pandas as pd
 from referential.models import securitydescription 
 from ..models import historical_price
 from datetime import datetime
+
+
+def _prepare_history_frame(ticker_symbol, period="3mo"):
+	data = yf.Ticker(ticker_symbol).history(period=period, auto_adjust=True)
+	dfHisto = pd.DataFrame(data)
+	if dfHisto.empty:
+		return dfHisto
+
+	dfHisto.reset_index(inplace=True)
+	dfHisto["price_change_1d"] = (dfHisto["Close"] / dfHisto["Close"].shift(1) - 1)
+	dfHisto["price_change_2d"] = (dfHisto["Close"] / dfHisto["Close"].shift(2) - 1)
+	dfHisto["price_change_5d"] = (dfHisto["Close"] / dfHisto["Close"].shift(5) - 1)
+	dfHisto["price_change_10d"] = (dfHisto["Close"] / dfHisto["Close"].shift(10) - 1)
+	dfHisto["price_change_15d"] = (dfHisto["Close"] / dfHisto["Close"].shift(15) - 1)
+	dfHisto["price_change_30d"] = (dfHisto["Close"] / dfHisto["Close"].shift(30) - 1)
+
+	dfHisto["mean_volume_30d"] = dfHisto["Volume"].rolling(30).mean()
+	dfHisto["std_volume_30d"] = dfHisto["Volume"].rolling(30).std()
+	dfHisto["mean_30d"] = dfHisto["price_change_1d"].rolling(30).mean()
+	dfHisto["std_30d"] = dfHisto["price_change_1d"].rolling(30).std()
+	dfHisto["ranking_change_1d"] = dfHisto["price_change_1d"].rank(ascending=True)
+	dfHisto["ranking_change_2d"] = dfHisto["price_change_2d"].rank(ascending=True)
+	dfHisto["ranking_change_5d"] = dfHisto["price_change_5d"].rank(ascending=True)
+	dfHisto["ranking_change_10d"] = dfHisto["price_change_10d"].rank(ascending=True)
+	dfHisto["ranking_change_15d"] = dfHisto["price_change_15d"].rank(ascending=True)
+	dfHisto["ranking_change_30d"] = dfHisto["price_change_30d"].rank(ascending=True)
+	dfHisto["ranking_std_30d"] = dfHisto["std_30d"].rank(ascending=True)
+	dfHisto["ranking_mean_30d"] = dfHisto["mean_30d"].rank(ascending=True)
+	return dfHisto
+
+
+def retrieve_latest_price():
+	print("start download latest market data from yahoo finance")
+	symbol = securitydescription.objects.all().values()
+	df = pd.DataFrame(symbol)
+	if df.empty:
+		print("no securities found")
+		return
+
+	for i in range(0, df["yahoo_id"].count()):
+		ticker_symbol = df["yahoo_id"][i]
+		try:
+			dfHisto = _prepare_history_frame(ticker_symbol)
+			if dfHisto.empty:
+				print("issue with symbol " + str(ticker_symbol) + " empty history")
+				continue
+
+			j = dfHisto.index[-1]
+			historical_price.objects.update_or_create(
+				yahoo_id=ticker_symbol,
+				spot_date=dfHisto["Date"][j],
+				defaults=dict(
+					open_price=dfHisto["Open"][j],
+					low_price=dfHisto["Low"][j],
+					high_price=dfHisto["High"][j],
+					close_price=dfHisto["Close"][j],
+					volume=dfHisto["Volume"][j],
+					dividend=dfHisto["Dividends"][j],
+					price_change_1d=dfHisto["price_change_1d"][j],
+					price_change_2d=dfHisto["price_change_2d"][j],
+					price_change_5d=dfHisto["price_change_5d"][j],
+					price_change_10d=dfHisto["price_change_10d"][j],
+					price_change_15d=dfHisto["price_change_15d"][j],
+					price_change_30d=dfHisto["price_change_30d"][j],
+					mean_30d=dfHisto["mean_30d"][j],
+					std_30d=dfHisto["std_30d"][j],
+					mean_volume_30d=dfHisto["mean_volume_30d"][j],
+					std_volume_30d=dfHisto["std_volume_30d"][j],
+					ranking_change_1d=dfHisto["ranking_change_1d"][j],
+					ranking_change_2d=dfHisto["ranking_change_2d"][j],
+					ranking_change_5d=dfHisto["ranking_change_5d"][j],
+					ranking_change_10d=dfHisto["ranking_change_10d"][j],
+					ranking_change_15d=dfHisto["ranking_change_15d"][j],
+					ranking_change_30d=dfHisto["ranking_change_30d"][j],
+					ranking_std_30d=dfHisto["ranking_std_30d"][j],
+					ranking_mean_30d=dfHisto["ranking_mean_30d"][j],
+				),
+			)
+			print("Updated latest market data: " + str(ticker_symbol))
+		except Exception as e:
+			print("issue with symbol " + str(ticker_symbol) + " " + str(e))
+
+	print(symbol)
+
+
 def retrieve_price():
 	print('start download from yahoo finance')
 	symbol=securitydescription.objects.all().values()

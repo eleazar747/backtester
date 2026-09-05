@@ -15,7 +15,6 @@ Including another URLconf
 """
 from django.urls import path
 from django.contrib import admin
-from django.conf.urls import url
 from referential import views
 from historical_price import views as viewshisto
 from django.views.generic.base import TemplateView
@@ -37,6 +36,12 @@ urlpatterns = [
     path('bigdrop', viewsBacktest.view_bigdrop),
     path('strategy_drop', viewsBacktest.view_backtestbigdrop),
     path('load_histo_coin',viewshisto.loadHistoCoin),
-    path('bactester_coin',viewsBacktest.view_backtest_coin)
+    path('bactester_coin',viewsBacktest.view_backtest_coin),
+    path('indicator_compare', views.view_indicator_compare),
+    path('indicator_review', views.view_indicator_review),
+    path('indicator_chart_data', views.view_indicator_chart_data),
+    path('strategy_params_dashboard', views.view_strategy_params_dashboard),
+    path('portfolio_next_year', views.view_next_year_portfolio),
+    path('portfolio', views.view_next_year_portfolio),
 
 ]

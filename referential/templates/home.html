@@ -17,9 +17,69 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
     <script src="https://unpkg.com/bootstrap-table@1.17.1/dist/bootstrap-table.min.js"></script>
-	
-	<style>
-table.dataTable thead .sorting:after,
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <style>
+      body {
+        background: #f5f8ff;
+        font-family: 'Segoe UI', Roboto, Arial, sans-serif;
+      }
+      .hero-card {
+        background: linear-gradient(135deg, #132b50 0%, #1f4da3 100%);
+        color: #fff;
+        border-radius: 24px;
+        padding: 24px;
+        box-shadow: 0 18px 40px rgba(17, 36, 61, 0.16);
+      }
+      .hero-card .eyebrow {
+        font-size: 12px;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        opacity: 0.8;
+      }
+      .panel-card {
+        background: rgba(255,255,255,0.96);
+        border: 1px solid rgba(17, 36, 61, 0.08);
+        border-radius: 20px;
+        box-shadow: 0 12px 30px rgba(17, 36, 61, 0.06);
+      }
+      .metric-card {
+        padding: 16px 18px;
+        border-radius: 16px;
+        background: #f8fbff;
+        border: 1px solid rgba(17, 36, 61, 0.06);
+      }
+      .metric-card .value {
+        font-size: 28px;
+        font-weight: 700;
+        margin-top: 4px;
+      }
+      .score-chip {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        background: #ebf9f1;
+        color: #1f7a3b;
+        padding: 6px 10px;
+        font-weight: 600;
+      }
+      .filter-card {
+        padding: 20px;
+      }
+      .table thead th {
+        color: #5c6b7a;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.14em;
+      }
+    </style>
+    
+    
+    
+    
+	<style>table.dataTable thead .sorting:after,
 table.dataTable thead .sorting:before,
 table.dataTable thead .sorting_asc:after,
 table.dataTable thead .sorting_asc:before,
@@ -34,24 +94,29 @@ bottom: .5em;
 </style>
    {% block title %}
    {% endblock title %}
-<nav class="navbar navbar-expand-lg navbar-light bg-light">
-  <a class="navbar-brand" href="#">Navbar</a>
-  <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarTogglerDemo02" aria-controls="navbarTogglerDemo02" aria-expanded="false" aria-label="Toggle navigation">
-    <span class="navbar-toggler-icon"></span>
-  </button>
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+  <div class="container">
+    <a class="navbar-brand font-weight-bold" href="/portfolio">Portfolio Studio</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
 
-  <div class="collapse navbar-collapse" id="navbarTogglerDemo02">
-    <ul class="navbar-nav mr-auto mt-2 mt-lg-0">
-      <li class="nav-item active">
-        <a class="nav-link" href="#">Home <span class="sr-only">(current)</span></a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="#">dashboard</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Disabled</a>
-      </li>
-    </ul>
+    <div class="collapse navbar-collapse" id="mainNav">
+      <ul class="navbar-nav ml-auto mt-2 mt-lg-0">
+        <li class="nav-item">
+          <a class="nav-link" href="/portfolio">Portfolio</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/indicator_review">Strategy Review</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/strategy_params_dashboard">Strategy Parameters</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="/dashboard/">Dashboard</a>
+        </li>
+      </ul>
+    </div>
   </div>
 </nav>
   </head>
@@ -68,14 +133,15 @@ bottom: .5em;
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.min.js" integrity="sha384-JjSmVgyd0p3pXB1rRibZUAYoIIy6OrQ6VrjIEaFf/nJGzIxFDsf4x0xIM+B07jRM" crossorigin="anonymous"></script>
 <script>
   $(function() {
-      $('#table').bootstrapTable('refreshOptions', {
-        sortable: true
-      })
+      if ($.fn.bootstrapTable && $('#table').length) {
+        $('#table').bootstrapTable('refreshOptions', {
+          sortable: true
+        })
+      }
   })
 </script>
   </body>
 </html>
-
 
 
 

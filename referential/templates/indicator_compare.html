@@ -1,0 +1,71 @@
+{% extends 'home.html' %}
+{% block title %}
+  <title>Indicator Compare</title>
+{% endblock title %}
+
+{% block content %}
+<div class="container">
+  <h3>{{ ticker }} - Stock vs Backtest</h3>
+  <p>Normalized to 100 at the first date in the selected window.</p>
+  <canvas id="compare-chart"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@2.9.3/dist/Chart.min.js"></script>
+<script>
+  var tradePoints = {{ data.trade_points|safe }};
+  var stockData = {{ data.stockdata|safe }};
+  var labels = {{ data.labels|safe }};
+
+  var tradeScatter = tradePoints.map(function(point) {
+    return {
+      x: point.x,
+      y: point.y,
+      label: point.type + ' (' + point.indicator + ')'
+    };
+  });
+
+  var config = {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [
+        {
+          label: '{{ ticker }} close',
+          data: stockData,
+          borderColor: '#1f77b4',
+          backgroundColor: 'rgba(31,119,180,0.1)',
+          fill: false,
+          pointRadius: 0
+        },
+        {
+          label: 'Backtest trades',
+          data: tradeScatter,
+          type: 'scatter',
+          borderColor: '#d62728',
+          backgroundColor: '#d62728',
+          pointRadius: 4
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        xAxes: [{
+          type: 'category'
+        }],
+        yAxes: [{
+          scaleLabel: {
+            display: true,
+            labelString: 'Normalized value'
+          }
+        }]
+      }
+    }
+  };
+
+  window.onload = function() {
+    var ctx = document.getElementById('compare-chart').getContext('2d');
+    window.myChart = new Chart(ctx, config);
+  };
+</script>
+{% endblock content %}

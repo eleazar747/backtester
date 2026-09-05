@@ -28,20 +28,90 @@ def rsi_signal(rsi_series: pd.Series) -> pd.Series:
 
 
 def supertrend_signal(high: pd.Series, low: pd.Series, close: pd.Series, lookback: int = 10, multiplier: int = 3):
-    # reuse get_supertrend which returns st list aligned with prices
-    try:
-        _, _, _, st_list, _ = get_supertrend(high, low, close, lookback, multiplier, 'tmp', None, close.index)
-    except Exception:
-        # fallback: create NaN series
-        st_list = [np.nan] * len(close)
+    st_series = get_supertrend(high, low, close, lookback, multiplier)
+    st_series = pd.Series(st_series).reindex(close.index)
 
-    st_series = pd.Series(st_list, index=close.index)
-    # 1 if close > st, -1 if close < st
-    sig = pd.Series(index=close.index, dtype=int)
-    sig[close > st_series] = 1
-    sig[close < st_series] = -1
-    sig[close == st_series] = 0
-    return st_series, sig.fillna(0).astype(int)
+    prev_close = close.shift(1)
+    prev_st = st_series.shift(1)
+
+    sig = pd.Series(0, index=close.index, dtype=int)
+    buy_mask = prev_close.notna() & prev_st.notna() & (prev_close <= prev_st) & (close > st_series)
+    sell_mask = prev_close.notna() & prev_st.notna() & (prev_close >= prev_st) & (close < st_series)
+    sig[buy_mask] = 1
+    sig[sell_mask] = -1
+    return st_series, sig
+
+
+def macd_signal(close: pd.Series, fast: int = 12, slow: int = 26, signal_span: int = 9):
+    ema_fast = close.ewm(span=fast, adjust=False).mean()
+    ema_slow = close.ewm(span=slow, adjust=False).mean()
+    macd_line = ema_fast - ema_slow
+    signal_line = macd_line.ewm(span=signal_span, adjust=False).mean()
+    prev_macd = macd_line.shift(1)
+    prev_signal = signal_line.shift(1)
+
+    sig = pd.Series(0, index=close.index, dtype=int)
+    sig[(prev_macd <= prev_signal) & (macd_line > signal_line)] = 1
+    sig[(prev_macd >= prev_signal) & (macd_line < signal_line)] = -1
+    return macd_line, signal_line, sig
+
+
+def ema_cross_signal(close: pd.Series, fast: int = 20, slow: int = 50):
+    ema_fast = close.ewm(span=fast, adjust=False).mean()
+    ema_slow = close.ewm(span=slow, adjust=False).mean()
+    prev_fast = ema_fast.shift(1)
+    prev_slow = ema_slow.shift(1)
+
+    sig = pd.Series(0, index=close.index, dtype=int)
+    sig[(prev_fast <= prev_slow) & (ema_fast > ema_slow)] = 1
+    sig[(prev_fast >= prev_slow) & (ema_fast < ema_slow)] = -1
+    return ema_fast, ema_slow, sig
+
+
+def ema_trend_signal(close: pd.Series, fast_period: int = 20, slow_period: int = 50, momentum_period: int = 10):
+    ema_fast = close.ewm(span=fast_period, adjust=False).mean()
+    ema_slow = close.ewm(span=slow_period, adjust=False).mean()
+    momentum = close.pct_change(periods=momentum_period)
+    prev_fast = ema_fast.shift(1)
+    prev_slow = ema_slow.shift(1)
+    prev_momentum = momentum.shift(1)
+
+    sig = pd.Series(0, index=close.index, dtype=int)
+    buy_mask = (prev_fast <= prev_slow) & (ema_fast > ema_slow) & (close > ema_fast) & (prev_momentum <= 0) & (momentum > 0)
+    sell_mask = (prev_fast >= prev_slow) & (ema_fast < ema_slow) & (close < ema_fast) & (prev_momentum >= 0) & (momentum < 0)
+    sig[buy_mask] = 1
+    sig[sell_mask] = -1
+    return ema_fast, ema_slow, momentum, sig
+
+
+def bollinger_signal(close: pd.Series, window: int = 20, num_std: int = 2):
+    mid = close.rolling(window=window, min_periods=window).mean()
+    std = close.rolling(window=window, min_periods=window).std(ddof=0)
+    upper = mid + (num_std * std)
+    lower = mid - (num_std * std)
+
+    prev_close = close.shift(1)
+    prev_lower = lower.shift(1)
+    prev_upper = upper.shift(1)
+    sig = pd.Series(0, index=close.index, dtype=int)
+    sig[(prev_close >= prev_lower) & (close < lower)] = 1
+    sig[(prev_close <= prev_upper) & (close > upper)] = -1
+    return upper, mid, lower, sig
+
+
+def stochastic_signal(high: pd.Series, low: pd.Series, close: pd.Series, k_period: int = 14, d_period: int = 3):
+    lowest_low = low.rolling(window=k_period, min_periods=k_period).min()
+    highest_high = high.rolling(window=k_period, min_periods=k_period).max()
+    denominator = (highest_high - lowest_low).replace(0, np.nan)
+    k = ((close - lowest_low) / denominator) * 100
+    d = k.rolling(window=d_period, min_periods=d_period).mean()
+    prev_k = k.shift(1)
+    prev_d = d.shift(1)
+
+    sig = pd.Series(0, index=close.index, dtype=int)
+    sig[(prev_k <= prev_d) & (k > d) & (k < 20)] = 1
+    sig[(prev_k >= prev_d) & (k < d) & (k > 80)] = -1
+    return k, d, sig
 
 
 def generate_signals_for_all(last_n: int = 252, rsi_period: int = 14, st_lookback: int = 10, st_multiplier: int = 3, out_csv: str = None):
